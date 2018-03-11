@@ -4,8 +4,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import ru.track.io.vendor.Bootstrapper;
 import ru.track.io.vendor.FileEncoder;
+import ru.track.io.vendor.ReferenceTaskImplementation;
 
-import java.io.*;
+import java.io.File;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 
 public final class TaskImplementation implements FileEncoder {
@@ -16,48 +18,10 @@ public final class TaskImplementation implements FileEncoder {
      * @return file to read encoded data from
      * @throws IOException is case of input/output errors
      */
-    
     @NotNull
     public File encodeFile(@NotNull String finPath, @Nullable String foutPath) throws IOException {
         /* XXX: https://docs.oracle.com/javase/8/docs/api/java/io/File.html#deleteOnExit-- */
-
-        File fin = new File(finPath);
-        File fout;
-
-        if (foutPath != null) {
-            fout = new File(foutPath);
-        } else {
-            fout = File.createTempFile("useless", ".txt");
-            fout.deleteOnExit();
-        }
-
-        try (
-                InputStream in = new FileInputStream(fin);
-                FileWriter writer = new FileWriter(fout)
-        ) {
-            int count = (int) fin.length() % 3;
-            byte[] input = new byte[3];
-
-            while (in.read(input, 0, 3) == 3) {
-                writer.append(toBase64[input[0] >> 2 & 0b111111]);
-                writer.append(toBase64[(input[0] << 4 | input[1] >> 4 & 0b1111) & 0b111111]);
-                writer.append(toBase64[(input[1] << 2 | input[2] >> 6 & 0b11) & 0b111111]);
-                writer.append(toBase64[input[2] & 0b111111]);
-            }
-
-            if (count == 1) {
-                writer.append(toBase64[input[0] >> 2 & 0b111111]);
-                writer.append(toBase64[input[0] << 4 & 0b111111]);
-                writer.write("==");
-            } else if (count == 2) {
-                writer.append(toBase64[input[0] >> 2 & 0b111111]);
-                writer.append(toBase64[(input[0] << 4 | input[1] >> 4 & 0b1111) & 0b111111]);
-                writer.append(toBase64[input[1] << 2 & 0b111111]);
-                writer.append('=');
-            }
-
-            return fout;
-        }
+        throw new UnsupportedOperationException(); // TODO: implement
     }
 
     private static final char[] toBase64 = {
@@ -69,7 +33,7 @@ public final class TaskImplementation implements FileEncoder {
     };
 
     public static void main(String[] args) throws Exception {
-        final FileEncoder encoder = new TaskImplementation();
+        final FileEncoder encoder = new ReferenceTaskImplementation();
         // NOTE: open http://localhost:9000/ in your web browser
         (new Bootstrapper(args, encoder))
                 .bootstrap("", new InetSocketAddress("127.0.0.1", 9000));
