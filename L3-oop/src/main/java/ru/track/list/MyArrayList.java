@@ -37,9 +37,7 @@ public class MyArrayList extends List {
     int remove(int idx) throws NoSuchElementException {
         if (idx < cap){
             int item = Arr[idx];
-            for (int i = idx; i < cap; ++i){
-                Arr[i] = Arr[i + 1];
-            }
+            System.arraycopy(Arr, idx + 1, Arr, idx, cap);
             --cap;
             return item;
         } else {

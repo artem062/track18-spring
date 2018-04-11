@@ -84,13 +84,8 @@ public class Decoder {
             }
         }
 
-        List<Map.Entry<Character, Integer>> listForHist = new LinkedList<>(hist.entrySet());
-        Collections.sort(listForHist, new Comparator<Map.Entry<Character, Integer>>(){
-            @Override
-            public int compare(Map.Entry<Character, Integer> o1, Map.Entry<Character, Integer> o2) {
-                return o2.getValue() - o1.getValue();
-            }
-        });
+        List<Map.Entry<Character, Integer>> listForHist = new ArrayList<>(hist.entrySet());
+        Collections.sort(listForHist, (o1, o2) -> o2.getValue() - o1.getValue());
 
         Map<Character, Integer> sortedHist = new LinkedHashMap<>();
 
