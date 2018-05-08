@@ -1,12 +1,13 @@
 package ru.track.prefork;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 /**
@@ -27,14 +28,25 @@ public class Server {
 
     public void serve() throws Exception {
         ServerSocket serverSocket = new ServerSocket(port, 10, InetAddress.getByName("localhost"));
+
+        final Socket socket = serverSocket.accept();
+
         while (true) {
             log.info("on select...");
-            final Socket socket = serverSocket.accept();
             InputStream inputStream = socket.getInputStream();
-
             byte[] buf = new byte[1024];
-            int nRead = inputStream.read(buf);
-            System.out.println(new String(buf, 0, nRead));
+
+            try {
+                int nRead = inputStream.read(buf);
+                final OutputStream out = socket.getOutputStream();
+                out.write(buf);
+                out.flush();
+
+                System.out.print(new String(buf, 0, nRead));
+            } catch (Exception e) {
+                socket.close();
+                break;
+            }
         }
     }
 
