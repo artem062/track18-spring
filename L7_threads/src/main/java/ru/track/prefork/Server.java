@@ -26,22 +26,21 @@ public class Server {
         this.port = port;
     }
 
-    public void serve() throws Exception {
-        ServerSocket serverSocket = new ServerSocket(port, 10, InetAddress.getByName("localhost"));
+    public void serve(Socket socket) throws Exception {
+//        ServerSocket serverSocket = new ServerSocket(port, 10, InetAddress.getByName("localhost"));
 
-        final Socket socket = serverSocket.accept();
-
+//        final Socket socket = serverSocket.accept();
+        log.info("connected");
         while (true) {
-            log.info("on select...");
             InputStream inputStream = socket.getInputStream();
             byte[] buf = new byte[1024];
 
             try {
                 int nRead = inputStream.read(buf);
                 final OutputStream out = socket.getOutputStream();
+                log.info("send:");
                 out.write(buf);
                 out.flush();
-
                 System.out.print(new String(buf, 0, nRead));
             } catch (Exception e) {
                 socket.close();
@@ -52,6 +51,21 @@ public class Server {
 
     public static void main(String[] args) throws Exception {
         Server server = new Server(9000);
-        server.serve();
+        ServerSocket serverSocket = new ServerSocket(server.port, 10, InetAddress.getByName("localhost"));
+
+        int ID = 1;
+        while (true) {
+            final Socket socket = serverSocket.accept();
+            Thread t = new Thread(() -> {
+                try {
+                    server.serve(socket);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+            t.setName("Client[" + ID + "]@" + serverSocket.getInetAddress().getHostAddress() + ":" + server.port);
+            t.start();
+            ++ID;
+        }
     }
 }
