@@ -1,12 +1,13 @@
 package ru.track.json;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
-import java.util.*;
+import java.util.Collection;
+import java.util.Map;
 import java.util.stream.Collectors;
+
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 
 /**
@@ -59,19 +60,9 @@ public class JsonWriter {
     @NotNull
     private static String toJsonArray(@NotNull Object object) {
         int length = Array.getLength(object);
-        StringBuilder result = new StringBuilder();
+        // TODO: implement!
 
-        result.append("[");
-        if (length != 0){
-            result.append(toJson(Array.get(object, 0)));
-            for (int i = 1; i < length; ++i){
-                result.append(',');
-                result.append(toJson(Array.get(object, i)));
-            }
-        }
-        result.append("]");
-
-        return result.toString();
+        return null;
     }
 
     /**
@@ -91,17 +82,9 @@ public class JsonWriter {
      */
     @NotNull
     private static String toJsonMap(@NotNull Object object) {
+        // TODO: implement!
 
-        Map map = (Map) object;
-        Map<String, String> newMap = new LinkedHashMap<>();
-
-        for(Object obj : map.keySet()) {
-            if (map.get(obj) != null) {
-                newMap.put(obj.toString(), toJson(map.get(obj)));
-            }
-        }
-
-        return formatObject(newMap);
+        return null;
         // Можно воспользоваться этим методом, если сохранить все поля в новой мапе уже в строковом представлении
 //        return formatObject(stringMap);
     }
@@ -124,23 +107,11 @@ public class JsonWriter {
      */
     @NotNull
     private static String toJsonObject(@NotNull Object object) {
-
         Class clazz = object.getClass();
-        Map<String, String> fields = new LinkedHashMap<>();
+        // TODO: implement!
 
-        for (Field field : clazz.getDeclaredFields()){
-            field.setAccessible(true);
-            try {
-                if (field.get(object) != null || clazz.getAnnotation(JsonNullable.class) != null) {
-                    if (field.getAnnotation(SerializedTo.class) != null)
-                        fields.put(field.getAnnotation(SerializedTo.class).value(), toJson(field.get(object)));
-                    else
-                        fields.put(field.getName(), toJson(field.get(object)));
-                }
-            } catch (IllegalAccessException e) {}
-        }
 
-        return formatObject(fields);
+        return null;
     }
 
     /**

@@ -14,7 +14,6 @@ public class MyLinkedList extends List {
      * <p>
      * static - позволяет использовать Node без создания экземпляра внешнего класса
      */
-
     private static class Node {
         Node prev;
         Node next;
@@ -27,59 +26,22 @@ public class MyLinkedList extends List {
         }
     }
 
-    Node head = new Node(null, null, 0);
     @Override
-
     void add(int item) {
-
-        Node last = new Node(head, head.next, item);
-        while (last.next != null){
-            last.prev = last.next;
-            last.next = last.next.next;
-        }
-        last.prev.next = last;
     }
 
     @Override
     int remove(int idx) throws NoSuchElementException {
-        Node node = new Node(head, head.next, 0);
-        while (0 < idx && node.next != null){
-            node.next = node.next.next;
-            --idx;
-        }
-        if (node.next == null){
-            throw new NoSuchElementException();
-        } else {
-            node.next.prev.next = node.next.next;
-            if (node.next.next != null){
-                node.next.next.prev = node.next.prev;
-            }
-            return node.next.val;
-        }
+        return 0;
     }
 
     @Override
     int get(int idx) throws NoSuchElementException {
-        Node node = new Node(head, head.next, 0);
-        while (0 < idx && node.next != null){
-            node.next = node.next.next;
-            --idx;
-        }
-        if (node.next == null){
-            throw new NoSuchElementException();
-        } else {
-            return node.next.val;
-        }
+        return 0;
     }
 
     @Override
     int size() {
-        int i = 0;
-        Node node = new Node(head, head.next, 0);
-        while (node.next != null){
-            node.next = node.next.next;
-            ++i;
-        }
-        return i;
+        return 0;
     }
 }
