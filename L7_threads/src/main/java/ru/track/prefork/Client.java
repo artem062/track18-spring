@@ -8,6 +8,62 @@ import java.io.OutputStream;
 import java.net.Socket;
 import java.util.Scanner;
 
+class ListenThread extends Thread {
+    private Socket socket;
+
+    ListenThread (Socket socket){
+        this.socket = socket;
+    }
+
+    @Override
+    public void run() {
+        try {
+            final InputStream inputStream = socket.getInputStream();
+
+            byte[] buf = new byte[1024];
+
+            while(!isInterrupted()) {
+                try {
+                    int nRead = inputStream.read(buf);
+                    System.out.print(new String(buf, 0, nRead));
+                } catch (Exception e) {
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+
+class WriteThread extends Thread {
+    private Socket socket;
+
+    WriteThread (Socket socket){
+        this.socket = socket;
+    }
+
+    @Override
+    public void run() {
+        try {
+            final OutputStream out = socket.getOutputStream();
+            Scanner scanner = new Scanner(System.in);
+
+            while (!isInterrupted()) {
+                String line = scanner.nextLine();
+                if (line.equals("exit")) {
+                    break;
+                }
+
+                out.write((line + "\n").getBytes());
+                out.flush();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}
+
 public class Client {
     static Logger log = LoggerFactory.getLogger(Client.class);
 
@@ -21,25 +77,15 @@ public class Client {
 
     public void loop() throws Exception {
         Socket socket = new Socket(host, port);
-        final OutputStream out = socket.getOutputStream();
-        Scanner scanner = new Scanner(System.in);
 
-        while (true) {
-            String line = scanner.nextLine();
-            if ("exit".equals(line)) {
-                break;
-            }
+        Thread listen = new ListenThread(socket);
+        Thread write = new WriteThread(socket);
 
-            out.write((line + "\n").getBytes());
-            out.flush();
+        listen.start();
+        write.start();
 
-            InputStream inputStream = socket.getInputStream();
+        listen.join();
 
-            byte[] buf = new byte[1024];
-            int nRead = inputStream.read(buf);
-
-            System.out.print(new String(buf, 0, nRead));
-        }
         socket.close();
     }
 
