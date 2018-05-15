@@ -25,7 +25,7 @@ class ListenThread extends Thread {
             while(!isInterrupted()) {
                 try {
                     int nRead = inputStream.read(buf);
-                    System.out.print(new String(buf, 0, nRead));
+                    System.out.println(new String(buf, 0, nRead));
                 } catch (Exception e) {
                     break;
                 }
@@ -55,7 +55,7 @@ class WriteThread extends Thread {
                     break;
                 }
 
-                out.write((line + "\n").getBytes());
+                out.write((line).getBytes());
                 out.flush();
             }
         } catch (Exception e) {
@@ -84,7 +84,7 @@ public class Client {
         listen.start();
         write.start();
 
-        listen.join();
+        write.join();
 
         socket.close();
     }
