@@ -9,6 +9,8 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.Scanner;
 
 
 /**
@@ -19,6 +21,31 @@ import java.util.ArrayList;
  * - save threads
  * - broadcast (fail-safe)
  */
+
+class Message {
+    private long ts;
+    private String data;
+    private String author;
+
+    public Message(long ts, String data, String author) {
+        this.ts = ts;
+        this.data = data;
+        this.author = author;
+    }
+
+    public String getData() {
+        return data;
+    }
+
+    public String getAuthor() {
+        return author;
+    }
+
+    public long getTs() {
+        return ts;
+    }
+}
+
 class ServerThread extends Thread {
     private Logger log;
     private Socket socket;
@@ -40,11 +67,14 @@ class ServerThread extends Thread {
             while (true) {
                 try {
                     int nRead = inputStream.read(buf);
+                    Date date = new Date();
                     String line = new String(buf, 0, nRead);
-                    sender.send(this.getName(), line);
+                    Message message = new Message(date.getTime(), line, this.getName());
+                    sender.send(message);
                     System.out.println(client + " > " + line);
                 } catch (Exception e) {
                     log.info("disconnected");
+                    sender.disconnected(this);
                     socket.close();
                     break;
                 }
@@ -54,32 +84,50 @@ class ServerThread extends Thread {
         }
     }
 
-    public void send(String message) {
+    public void send(Message message) {
         try {
             final OutputStream out = socket.getOutputStream();
-            out.write(message.getBytes());
+            out.write((message.getAuthor() + " > " + message.getData()).getBytes());
             out.flush();
         } catch (Exception e) {
             e.printStackTrace();
         }
-
     }
 }
 
 class SenderThread extends Thread {
     private ArrayList<ServerThread> threads = new ArrayList<>();
 
-    public void send(String author, String line) {
-        String message = "Client" + author.substring(author.indexOf("@")) + " > " + line;
+    public void run() {
+        Scanner scanner = new Scanner(System.in);
+
+        while (!isInterrupted()) {
+            String line = scanner.nextLine();
+
+            if (line.equals("list")) {
+                System.out.println("List of clients:");
+                for (ServerThread thread : threads)
+                    System.out.println("\t" + thread.getName());
+            }
+        }
+    }
+
+    public void send(Message message) {
+        String author = "Client" + message.getAuthor().substring(message.getAuthor().indexOf("@"));
+        Message updatedMessage = new Message(message.getTs(), message.getData(), author);
         for (ServerThread thread : threads) {
-            if (!thread.getName().equals(author)) {
-                thread.send(message);
+            if (!thread.getName().equals(message.getAuthor())) {
+                thread.send(updatedMessage);
             }
         }
     }
 
     public void update(ServerThread t) {
         threads.add(t);
+    }
+
+    public void disconnected(ServerThread t) {
+        threads.remove(t);
     }
 }
 
