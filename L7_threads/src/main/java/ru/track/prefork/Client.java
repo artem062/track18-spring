@@ -3,50 +3,63 @@ package ru.track.prefork;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.EOFException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.Scanner;
 
 class ListenThread extends Thread {
     private Socket socket;
+    private WriteThread writer;
+    private boolean isWork;
 
-    ListenThread (Socket socket){
+    ListenThread (Socket socket, WriteThread writer){
         this.socket = socket;
+        this.writer = writer;
+        isWork = true;
     }
 
     @Override
     public void run() {
         try {
-            final InputStream inputStream = socket.getInputStream();
-
-            byte[] buf = new byte[1024];
+            final ObjectInputStream input = new ObjectInputStream(socket.getInputStream());
 
             while(!isInterrupted()) {
                 try {
-                    int nRead = inputStream.read(buf);
-                    System.out.println(new String(buf, 0, nRead));
-                } catch (Exception e) {
-                    break;
-                }
+                    Message mess = (Message) input.readObject();
+                    if (!mess.isConnected()) {
+                        writer.interrupt();
+                        break;
+                    }
+                    System.out.println(mess.getAuthor() + " > " + mess.getData());
+                } catch (EOFException e) {}
             }
+            input.close();
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public void off() {
+        isWork = false;
     }
 }
 
 class WriteThread extends Thread {
     private Socket socket;
+    private ListenThread listener;
+    private boolean isWork;
 
     WriteThread (Socket socket){
         this.socket = socket;
+        isWork = true;
     }
 
     @Override
     public void run() {
         try {
-            final OutputStream out = socket.getOutputStream();
+            final ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
             Scanner scanner = new Scanner(System.in);
 
             while (!isInterrupted()) {
@@ -54,13 +67,18 @@ class WriteThread extends Thread {
                 if (line.equals("exit")) {
                     break;
                 }
-
-                out.write((line).getBytes());
+                out.writeObject(new Message(0, line, "me", true));
                 out.flush();
             }
+            out.writeObject(new Message(0, "", "", false));
+            out.close();
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public void setListener(ListenThread listener) {
+        this.listener = listener;
     }
 }
 
@@ -78,13 +96,15 @@ public class Client {
     public void loop() throws Exception {
         Socket socket = new Socket(host, port);
 
-        Thread listen = new ListenThread(socket);
-        Thread write = new WriteThread(socket);
+        WriteThread writer = new WriteThread(socket);
+        ListenThread listen = new ListenThread(socket, writer);
 
         listen.start();
-        write.start();
+        writer.start();
+        writer.setListener(listen);
 
-        write.join();
+        writer.join();
+        listen.join();
 
         socket.close();
     }

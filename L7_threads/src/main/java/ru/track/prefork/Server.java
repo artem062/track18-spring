@@ -3,8 +3,7 @@ package ru.track.prefork;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -22,15 +21,17 @@ import java.util.Scanner;
  * - broadcast (fail-safe)
  */
 
-class Message {
+class Message implements Serializable{
     private long ts;
     private String data;
     private String author;
+    private boolean connected;
 
-    public Message(long ts, String data, String author) {
+    public Message(long ts, String data, String author, boolean con) {
         this.ts = ts;
         this.data = data;
         this.author = author;
+        connected = con;
     }
 
     public String getData() {
@@ -44,17 +45,23 @@ class Message {
     public long getTs() {
         return ts;
     }
+
+    public boolean isConnected() {
+        return connected;
+    }
 }
 
 class ServerThread extends Thread {
     private Logger log;
     private Socket socket;
     private SenderThread sender;
+    private final ObjectOutputStream out;
 
-    ServerThread(Socket socket, Logger log, SenderThread sender){
+    ServerThread(Socket socket, Logger log, SenderThread sender) throws IOException {
         this.socket = socket;
         this.log = log;
         this.sender = sender;
+        this.out = new ObjectOutputStream(socket.getOutputStream());
     }
 
     @Override
@@ -62,23 +69,18 @@ class ServerThread extends Thread {
         log.info("connected");
         String client = Thread.currentThread().getName();
         try {
-            InputStream inputStream = socket.getInputStream();
-            byte[] buf = new byte[1024];
-            while (true) {
-                try {
-                    int nRead = inputStream.read(buf);
-                    Date date = new Date();
-                    String line = new String(buf, 0, nRead);
-                    Message message = new Message(date.getTime(), line, this.getName());
-                    sender.send(message);
-                    System.out.println(client + " > " + line);
-                } catch (Exception e) {
-                    log.info("disconnected");
-                    sender.disconnected(this);
-                    socket.close();
+            ObjectInputStream inputStream = new ObjectInputStream(socket.getInputStream());
+            while (!isInterrupted()) {
+                Message mess = (Message) inputStream.readObject();
+                if (!mess.isConnected()) {
                     break;
                 }
+                Date date = new Date();
+                Message message = new Message(date.getTime(), mess.getData(), this.getName(), true);
+                sender.send(message);
+                System.out.println(client + " > " + mess.getData());
             }
+            disconnect();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -86,12 +88,28 @@ class ServerThread extends Thread {
 
     public void send(Message message) {
         try {
-            final OutputStream out = socket.getOutputStream();
-            out.write((message.getAuthor() + " > " + message.getData()).getBytes());
+            out.writeObject(message);
             out.flush();
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public void disconnect() {
+        log.info("disconnected");
+        try {
+            out.writeObject(new Message(0, "", "", false));
+            out.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        sender.disconnected(this);
+        try {
+            out.close();
+        } catch (IOException e) {}
+        try {
+            socket.close();
+        } catch (IOException e) {}
     }
 }
 
@@ -108,13 +126,22 @@ class SenderThread extends Thread {
                 System.out.println("List of clients:");
                 for (ServerThread thread : threads)
                     System.out.println("\t" + thread.getName());
+            } else if (line.length() > 5 && line.substring(0, 5).equals("drop ")) {
+                String ID = "[" + line.substring(5);
+                for (ServerThread thread : threads) {
+                    if (ID.equals(thread.getName().substring(thread.getName().indexOf("["), thread.getName().indexOf("]")))) {
+                        thread.disconnect();
+                        disconnected(thread);
+                        break;
+                    }
+                }
             }
         }
     }
 
     public void send(Message message) {
         String author = "Client" + message.getAuthor().substring(message.getAuthor().indexOf("@"));
-        Message updatedMessage = new Message(message.getTs(), message.getData(), author);
+        Message updatedMessage = new Message(message.getTs(), message.getData(), author, true);
         for (ServerThread thread : threads) {
             if (!thread.getName().equals(message.getAuthor())) {
                 thread.send(updatedMessage);
