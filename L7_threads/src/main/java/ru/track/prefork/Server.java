@@ -67,20 +67,30 @@ class ServerThread extends Thread {
     @Override
     public void run() {
         log.info("connected");
-        String client = Thread.currentThread().getName();
+        String client = this.getName();
         try {
             ObjectInputStream inputStream = new ObjectInputStream(socket.getInputStream());
             while (!isInterrupted()) {
-                Message mess = (Message) inputStream.readObject();
-                if (!mess.isConnected()) {
-                    break;
-                }
-                Date date = new Date();
-                Message message = new Message(date.getTime(), mess.getData(), this.getName(), true);
-                sender.send(message);
-                System.out.println(client + " > " + mess.getData());
+                try {
+                    Message mess = (Message) inputStream.readObject();
+                    if (!mess.isConnected()) {
+//                        disconnect();
+                        break;
+                    }
+                    Date date = new Date();
+                    Message message = new Message(date.getTime(), mess.getData(), this.getName(), true);
+                    sender.send(message);
+                    System.out.println(client + " > " + mess.getData());
+                } catch (EOFException e) { break; }
             }
-            disconnect();
+            log.info("disconnected");
+            sender.disconnected(this);
+            try {
+                out.close();
+            } catch (IOException e) {}
+            try {
+                socket.close();
+            } catch (IOException e) {}
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -96,20 +106,12 @@ class ServerThread extends Thread {
     }
 
     public void disconnect() {
-        log.info("disconnected");
         try {
             out.writeObject(new Message(0, "", "", false));
             out.flush();
         } catch (IOException e) {
             e.printStackTrace();
         }
-        sender.disconnected(this);
-        try {
-            out.close();
-        } catch (IOException e) {}
-        try {
-            socket.close();
-        } catch (IOException e) {}
     }
 }
 
@@ -131,7 +133,6 @@ class SenderThread extends Thread {
                 for (ServerThread thread : threads) {
                     if (ID.equals(thread.getName().substring(thread.getName().indexOf("["), thread.getName().indexOf("]")))) {
                         thread.disconnect();
-                        disconnected(thread);
                         break;
                     }
                 }

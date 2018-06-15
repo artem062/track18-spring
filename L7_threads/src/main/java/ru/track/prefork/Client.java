@@ -3,21 +3,19 @@ package ru.track.prefork;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.EOFException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.Scanner;
 
 class ListenThread extends Thread {
     private Socket socket;
     private WriteThread writer;
-    private boolean isWork;
 
     ListenThread (Socket socket, WriteThread writer){
         this.socket = socket;
         this.writer = writer;
-        isWork = true;
     }
 
     @Override
@@ -30,30 +28,25 @@ class ListenThread extends Thread {
                     Message mess = (Message) input.readObject();
                     if (!mess.isConnected()) {
                         writer.interrupt();
+                        System.out.println("--DISCONNECTED BY SERVER--");;
                         break;
                     }
                     System.out.println(mess.getAuthor() + " > " + mess.getData());
-                } catch (EOFException e) {}
+                } catch (SocketException e) { break; }
             }
             input.close();
+            writer.interrupt();
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    public void off() {
-        isWork = false;
     }
 }
 
 class WriteThread extends Thread {
     private Socket socket;
-    private ListenThread listener;
-    private boolean isWork;
 
     WriteThread (Socket socket){
         this.socket = socket;
-        isWork = true;
     }
 
     @Override
@@ -65,20 +58,20 @@ class WriteThread extends Thread {
             while (!isInterrupted()) {
                 String line = scanner.nextLine();
                 if (line.equals("exit")) {
+                    out.writeObject(new Message(0, "", "", false));
                     break;
                 }
-                out.writeObject(new Message(0, line, "me", true));
-                out.flush();
+                try {
+                    out.writeObject(new Message(0, line, "me", true));
+                    out.flush();
+                } catch (SocketException e) { break; }
             }
-            out.writeObject(new Message(0, "", "", false));
-            out.close();
+            try {
+                out.close();
+            } catch (SocketException e) {}
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    public void setListener(ListenThread listener) {
-        this.listener = listener;
     }
 }
 
@@ -99,9 +92,8 @@ public class Client {
         WriteThread writer = new WriteThread(socket);
         ListenThread listen = new ListenThread(socket, writer);
 
-        listen.start();
         writer.start();
-        writer.setListener(listen);
+        listen.start();
 
         writer.join();
         listen.join();
