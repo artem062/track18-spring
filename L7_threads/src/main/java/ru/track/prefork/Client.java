@@ -3,6 +3,7 @@ package ru.track.prefork;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.EOFException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
@@ -26,14 +27,10 @@ class ListenThread extends Thread {
             while(!isInterrupted()) {
                 try {
                     Message mess = (Message) input.readObject();
-                    if (!mess.isConnected()) {
-                        writer.interrupt();
-                        System.out.println("--DISCONNECTED BY SERVER--");;
-                        break;
-                    }
                     System.out.println(mess.getAuthor() + " > " + mess.getData());
-                } catch (SocketException e) { break; }
+                } catch (SocketException | EOFException e) { break; }
             }
+            System.out.println("DISCONNECTED");
             input.close();
             writer.interrupt();
         } catch (Exception e) {
@@ -44,9 +41,14 @@ class ListenThread extends Thread {
 
 class WriteThread extends Thread {
     private Socket socket;
+    private ListenThread listen;
 
     WriteThread (Socket socket){
         this.socket = socket;
+    }
+
+    public void setListen(ListenThread listen) {
+        this.listen = listen;
     }
 
     @Override
@@ -58,17 +60,17 @@ class WriteThread extends Thread {
             while (!isInterrupted()) {
                 String line = scanner.nextLine();
                 if (line.equals("exit")) {
-                    out.writeObject(new Message(0, "", "", false));
                     break;
                 }
                 try {
-                    out.writeObject(new Message(0, line, "me", true));
+                    out.writeObject(new Message(0, line, "me"));
                     out.flush();
                 } catch (SocketException e) { break; }
             }
             try {
                 out.close();
             } catch (SocketException e) {}
+            listen.interrupt();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -94,6 +96,7 @@ public class Client {
 
         writer.start();
         listen.start();
+        writer.setListen(listen);
 
         writer.join();
         listen.join();

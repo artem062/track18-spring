@@ -7,6 +7,7 @@ import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Scanner;
@@ -25,13 +26,11 @@ class Message implements Serializable{
     private long ts;
     private String data;
     private String author;
-    private boolean connected;
 
-    public Message(long ts, String data, String author, boolean con) {
+    public Message(long ts, String data, String author) {
         this.ts = ts;
         this.data = data;
         this.author = author;
-        connected = con;
     }
 
     public String getData() {
@@ -44,10 +43,6 @@ class Message implements Serializable{
 
     public long getTs() {
         return ts;
-    }
-
-    public boolean isConnected() {
-        return connected;
     }
 }
 
@@ -73,24 +68,13 @@ class ServerThread extends Thread {
             while (!isInterrupted()) {
                 try {
                     Message mess = (Message) inputStream.readObject();
-                    if (!mess.isConnected()) {
-//                        disconnect();
-                        break;
-                    }
                     Date date = new Date();
-                    Message message = new Message(date.getTime(), mess.getData(), this.getName(), true);
+                    Message message = new Message(date.getTime(), mess.getData(), this.getName());
                     sender.send(message);
                     System.out.println(client + " > " + mess.getData());
-                } catch (EOFException e) { break; }
+                } catch (SocketException | EOFException e) { break; }
             }
-            log.info("disconnected");
-            sender.disconnected(this);
-            try {
-                out.close();
-            } catch (IOException e) {}
-            try {
-                socket.close();
-            } catch (IOException e) {}
+            disconnect();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -106,12 +90,14 @@ class ServerThread extends Thread {
     }
 
     public void disconnect() {
+        log.info("disconnected");
+        sender.disconnected(this);
         try {
-            out.writeObject(new Message(0, "", "", false));
-            out.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+            out.close();
+        } catch (IOException e) {}
+        try {
+            socket.close();
+        } catch (IOException e) {}
     }
 }
 
@@ -142,7 +128,7 @@ class SenderThread extends Thread {
 
     public void send(Message message) {
         String author = "Client" + message.getAuthor().substring(message.getAuthor().indexOf("@"));
-        Message updatedMessage = new Message(message.getTs(), message.getData(), author, true);
+        Message updatedMessage = new Message(message.getTs(), message.getData(), author);
         for (ServerThread thread : threads) {
             if (!thread.getName().equals(message.getAuthor())) {
                 thread.send(updatedMessage);
