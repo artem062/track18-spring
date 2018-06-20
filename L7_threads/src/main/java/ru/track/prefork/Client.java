@@ -27,7 +27,7 @@ class ListenThread extends Thread {
             while(!isInterrupted()) {
                 try {
                     Message mess = (Message) input.readObject();
-                    System.out.println(mess.getAuthor() + " > " + mess.getData());
+                    System.out.println(mess.author + " > " + mess.data);
                 } catch (SocketException | EOFException e) { break; }
             }
             System.out.println("DISCONNECTED");

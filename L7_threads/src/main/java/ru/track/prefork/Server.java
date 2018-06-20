@@ -10,41 +10,9 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Scanner;
 
-
-/**
- * - multithreaded +
- * - atomic counter +
- * - setName() +
- * - thread -> Worker +
- * - save threads
- * - broadcast (fail-safe)
- */
-
-class Message implements Serializable{
-    private long ts;
-    private String data;
-    private String author;
-
-    public Message(long ts, String data, String author) {
-        this.ts = ts;
-        this.data = data;
-        this.author = author;
-    }
-
-    public String getData() {
-        return data;
-    }
-
-    public String getAuthor() {
-        return author;
-    }
-
-    public long getTs() {
-        return ts;
-    }
-}
 
 class ServerThread extends Thread {
     private Logger log;
@@ -69,9 +37,8 @@ class ServerThread extends Thread {
                 try {
                     Message mess = (Message) inputStream.readObject();
                     Date date = new Date();
-                    Message message = new Message(date.getTime(), mess.getData(), this.getName());
+                    Message message = new Message(date.getTime(), mess.data, this.getName());
                     sender.send(message);
-                    System.out.println(client + " > " + mess.getData());
                 } catch (SocketException | EOFException e) { break; }
             }
             disconnect();
@@ -103,6 +70,11 @@ class ServerThread extends Thread {
 
 class SenderThread extends Thread {
     private ArrayList<ServerThread> threads = new ArrayList<>();
+    private DAO dao;
+
+    SenderThread (DAO dao) {
+        this.dao = dao;
+    }
 
     public void run() {
         Scanner scanner = new Scanner(System.in);
@@ -114,6 +86,19 @@ class SenderThread extends Thread {
                 System.out.println("List of clients:");
                 for (ServerThread thread : threads)
                     System.out.println("\t" + thread.getName());
+            } else if (line.length() > 11 && line.substring(0, 11).equals("getHistory ")) {
+                long time = new Date().getTime();
+                long minute = 60000;
+                int count = Integer.parseInt(line.substring(11));
+                List<Message> history = dao.getHistory(time - minute * count, time, 20);
+                for (Message mes : history) {
+                    System.out.println("[" + new Date(mes.ts) + "] " + mes.author + " > " + mes.data);
+                }
+            } else if (line.length() > 12 && line.substring(0, 12).equals("userHistory ")) {
+                List<Message> history = dao.getByUser(line.substring(12), 10);
+                for (Message mes : history) {
+                    System.out.println("[" + new Date(mes.ts).toString() + "] " + mes.author + " > " + mes.data);
+                }
             } else if (line.length() > 5 && line.substring(0, 5).equals("drop ")) {
                 String ID = "[" + line.substring(5);
                 for (ServerThread thread : threads) {
@@ -127,10 +112,12 @@ class SenderThread extends Thread {
     }
 
     public void send(Message message) {
-        String author = "Client" + message.getAuthor().substring(message.getAuthor().indexOf("@"));
-        Message updatedMessage = new Message(message.getTs(), message.getData(), author);
+        long id = dao.store(message);
+        System.out.println("(" + id + ") " + message.author + " > " + message.data);
+        String author = "Client" + message.author.substring(message.author.indexOf("@"));
+        Message updatedMessage = new Message(message.ts, message.data, author);
         for (ServerThread thread : threads) {
-            if (!thread.getName().equals(message.getAuthor())) {
+            if (!thread.getName().equals(message.author)) {
                 thread.send(updatedMessage);
             }
         }
@@ -147,7 +134,6 @@ class SenderThread extends Thread {
 
 public class Server {
     private static Logger log = LoggerFactory.getLogger(Server.class);
-
     private int port;
     public Server(int port) {
         this.port = port;
@@ -155,7 +141,8 @@ public class Server {
 
     public void serve() throws Exception {
         ServerSocket serverSocket = new ServerSocket(port, 10, InetAddress.getByName("localhost"));
-        SenderThread sender = new SenderThread();
+        DAO dao = new DAO();
+        SenderThread sender = new SenderThread(dao);
         sender.start();
 
         for (int ID = 1; true; ++ID) {
