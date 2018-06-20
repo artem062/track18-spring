@@ -36,23 +36,27 @@ public final class TaskImplementation implements FileEncoder {
                 FileWriter writer = new FileWriter(fout)
         ) {
             int count = (int) fin.length() % 3;
-            byte[] input = new byte[3];
+            int buffSize = 300;
+            int size, i = 0;
+            byte[] input = new byte[buffSize];
 
-            while (in.read(input, 0, 3) == 3) {
-                writer.append(toBase64[input[0] >> 2 & 0b111111]);
-                writer.append(toBase64[(input[0] << 4 | input[1] >> 4 & 0b1111) & 0b111111]);
-                writer.append(toBase64[(input[1] << 2 | input[2] >> 6 & 0b11) & 0b111111]);
-                writer.append(toBase64[input[2] & 0b111111]);
+            while ((size = in.read(input, 0, buffSize)) >= 3) {
+                for (i = 0; i < size - 2; i += 3) {
+                    writer.append(toBase64[input[i] >> 2 & 0b111111]);
+                    writer.append(toBase64[(input[i] << 4 | input[1 + i] >> 4 & 0b1111) & 0b111111]);
+                    writer.append(toBase64[(input[1 + i] << 2 | input[2 + i] >> 6 & 0b11) & 0b111111]);
+                    writer.append(toBase64[input[2 + i] & 0b111111]);
+                }
             }
 
             if (count == 1) {
-                writer.append(toBase64[input[0] >> 2 & 0b111111]);
-                writer.append(toBase64[input[0] << 4 & 0b111111]);
+                writer.append(toBase64[input[i] >> 2 & 0b111111]);
+                writer.append(toBase64[input[i] << 4 & 0b111111]);
                 writer.write("==");
             } else if (count == 2) {
-                writer.append(toBase64[input[0] >> 2 & 0b111111]);
-                writer.append(toBase64[(input[0] << 4 | input[1] >> 4 & 0b1111) & 0b111111]);
-                writer.append(toBase64[input[1] << 2 & 0b111111]);
+                writer.append(toBase64[input[i] >> 2 & 0b111111]);
+                writer.append(toBase64[(input[i] << 4 | input[i + 1] >> 4 & 0b1111) & 0b111111]);
+                writer.append(toBase64[input[i + 1] << 2 & 0b111111]);
                 writer.append('=');
             }
 
